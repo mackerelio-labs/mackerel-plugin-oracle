@@ -30,7 +30,7 @@ sleep 10
 
 #export MACKEREL_PLUGIN_WORKDIR=tmp
 
-# wait until bootstrap mysqld..
+# wait until bootstrap oracle..
 for i in $(seq 5)
 do
 	echo "Connecting $i..."
