@@ -11,7 +11,7 @@ import (
 
 	mp "github.com/mackerelio/go-mackerel-plugin-helper"
 	"github.com/mackerelio/golib/logging"
-	_ "github.com/mattn/go-oci8"
+	go_ora "github.com/sijms/go-ora/v2"
 )
 
 var logger = logging.GetLogger("metrics.plugin.oracle")
@@ -68,7 +68,7 @@ func (we *waitEventNames) Set(value string) error {
 // OraclePlugin mackerel plugin for Oracle
 type OraclePlugin struct {
 	Prefix string
-	DSN    string
+	Conn   string
 }
 
 var replacer = strings.NewReplacer(
@@ -201,7 +201,7 @@ func (p OraclePlugin) MetricKeyPrefix() string {
 
 // FetchMetrics interface for mackerelplugin
 func (p OraclePlugin) FetchMetrics() (map[string]interface{}, error) {
-	db, err := sql.Open("oci8", p.DSN)
+	db, err := sql.Open("oracle", p.Conn)
 	if err != nil {
 		logger.Errorf("FetchMetrics: %s", err)
 		return nil, err
@@ -278,15 +278,26 @@ func (p OraclePlugin) GraphDefinition() map[string]mp.Graphs {
 
 // Do the plugin
 func Do() {
-	optDSN := flag.String("dsn", "system/manager", "Database Source Name")
+	optServer := flag.String("host", "localhost", "host")
+	optPort := flag.Int("port", 1521, "port")
+	optService := flag.String("service", "", "service")
+	optUser := flag.String("username", "sys", "username")
+	optPassword := flag.String("password", "password", "password")
+	optSid := flag.String("sid", "", "sid")
+
 	optPrefix := flag.String("metric-key-prefix", "oracle", "Metric key prefix")
 	optTempfile := flag.String("tempfile", "", "Temp file name")
 	flag.Var(&optWaitEvents, "event", "List of WaitEvent name")
 	flag.Parse()
 
+	urlOptions := map[string]string{}
+	if *optSid != "" {
+		urlOptions["SID"] = *optSid
+	}
+
 	var oracle OraclePlugin
-	oracle.DSN = *optDSN
 	oracle.Prefix = *optPrefix
+	oracle.Conn = go_ora.BuildUrl(*optServer, *optPort, *optService, *optUser, *optPassword, urlOptions)
 
 	helper := mp.NewMackerelPlugin(oracle)
 

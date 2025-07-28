@@ -1,6 +1,6 @@
 package main
 
-import "github.com/mattn/mackerel-plugin-oracle/lib"
+import mporacle "github.com/mackerelio-labs/mackerel-plugin-oracle/lib"
 
 func main() {
 	mporacle.Do()
