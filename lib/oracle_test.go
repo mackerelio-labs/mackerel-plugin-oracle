@@ -18,9 +18,9 @@ func TestWaitEventNameEmpty(t *testing.T) {
 
 func TestWaitEventNameString(t *testing.T) {
 	var opt waitEventNames
-	opt.Set(`foo`)
-	opt.Set(`bar`)
-	opt.Set(`"baz"`)
+	opt.Set(`foo`)   // nolint
+	opt.Set(`bar`)   // nolint
+	opt.Set(`"baz"`) // nolint
 	got := opt.String()
 	want := `"foo","bar","\"baz\""`
 	if got != want {
@@ -30,10 +30,10 @@ func TestWaitEventNameString(t *testing.T) {
 
 func TestWaitEventNameMatch(t *testing.T) {
 	var opt waitEventNames
-	opt.Set(`foo`)
-	opt.Set(`bar`)
-	opt.Set(`"baz"`)
-	opt.Set(`/^(mackerel|agent)$/`)
+	opt.Set(`foo`)                  // nolint
+	opt.Set(`bar`)                  // nolint
+	opt.Set(`"baz"`)                // nolint
+	opt.Set(`/^(mackerel|agent)$/`) // nolint
 
 	tests := []struct {
 		name string

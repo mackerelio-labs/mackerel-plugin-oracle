@@ -6,12 +6,18 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 
 	mp "github.com/mackerelio/go-mackerel-plugin-helper"
 	"github.com/mackerelio/golib/logging"
-	_ "github.com/mattn/go-oci8"
+	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/renderer"
+	"github.com/olekukonko/tablewriter/tw"
+	go_ora "github.com/sijms/go-ora/v2"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 var logger = logging.GetLogger("metrics.plugin.oracle")
@@ -68,7 +74,7 @@ func (we *waitEventNames) Set(value string) error {
 // OraclePlugin mackerel plugin for Oracle
 type OraclePlugin struct {
 	Prefix string
-	DSN    string
+	Conn   string
 }
 
 var replacer = strings.NewReplacer(
@@ -145,13 +151,14 @@ func fetchWaitClass(db *sql.DB) (map[string]interface{}, error) {
 	return stat, nil
 }
 
-func fetchWaitEvents(db *sql.DB) (map[string]interface{}, error) {
-	stat := make(map[string]interface{})
+type waitEvents struct {
+	class string
+	name  string
+	cnt   float64
+	avgms float64
+}
 
-	if len(optWaitEvents) == 0 {
-		return stat, nil
-	}
-
+func doFetchWaitEvents(db *sql.DB) (v []waitEvents, err error) {
 	rows, err := db.Query(`
 	select
 	    n.wait_class wait_class,
@@ -164,21 +171,38 @@ func fetchWaitEvents(db *sql.DB) (map[string]interface{}, error) {
 	    and n.wait_class <> 'Idle' and m.wait_count > 0 order by 1
 	`)
 	if err != nil {
+		return
+	}
+
+	for rows.Next() {
+		var data waitEvents
+		err = rows.Scan(&data.class, &data.name, &data.cnt, &data.avgms)
+		if err != nil {
+			return nil, err
+		}
+		v = append(v, data)
+	}
+
+	return
+}
+
+func fetchWaitEvents(db *sql.DB) (map[string]interface{}, error) {
+	stat := make(map[string]interface{})
+
+	if len(optWaitEvents) == 0 {
+		return stat, nil
+	}
+
+	rows, err := doFetchWaitEvents(db)
+	if err != nil {
 		logger.Errorf("Failed to select wait_event. %s", err)
 		return nil, err
 	}
 
-	for rows.Next() {
-		var class, name string
-		var cnt, avgms float64
-		err = rows.Scan(&class, &name, &cnt, &avgms)
-		if err != nil {
-			return nil, err
-		}
-		logger.Infof("Event %s.%s: count=%f, latency=%f", class, name, cnt, avgms)
-		if optWaitEvents.Match(name) {
-			stat[normalize(name)+"_count"] = cnt
-			stat[normalize(name)+"_latency"] = avgms
+	for _, row := range rows {
+		if optWaitEvents.Match(row.name) {
+			stat[normalize(row.name)+"_count"] = row.cnt
+			stat[normalize(row.name)+"_latency"] = row.avgms
 		}
 	}
 
@@ -201,7 +225,7 @@ func (p OraclePlugin) MetricKeyPrefix() string {
 
 // FetchMetrics interface for mackerelplugin
 func (p OraclePlugin) FetchMetrics() (map[string]interface{}, error) {
-	db, err := sql.Open("oci8", p.DSN)
+	db, err := sql.Open("oracle", p.Conn)
 	if err != nil {
 		logger.Errorf("FetchMetrics: %s", err)
 		return nil, err
@@ -234,7 +258,7 @@ func (p OraclePlugin) FetchMetrics() (map[string]interface{}, error) {
 
 // GraphDefinition interface for mackerelplugin
 func (p OraclePlugin) GraphDefinition() map[string]mp.Graphs {
-	labelPrefix := strings.Title(p.MetricKeyPrefix())
+	labelPrefix := cases.Title(language.Und, cases.NoLower).String(p.MetricKeyPrefix())
 
 	var graphdef = map[string]mp.Graphs{
 		"resource": {
@@ -276,17 +300,65 @@ func (p OraclePlugin) GraphDefinition() map[string]mp.Graphs {
 	return graphdef
 }
 
+func showEventName(dsn string) error {
+	db, err := sql.Open("oracle", dsn)
+	if err != nil {
+		return err
+	}
+
+	rows, err := doFetchWaitEvents(db)
+	if err != nil {
+		return err
+	}
+
+	table := tablewriter.NewTable(os.Stdout,
+		tablewriter.WithRenderer(renderer.NewBlueprint(tw.Rendition{Symbols: tw.NewSymbols(tw.StyleASCII)})),
+	)
+	table.Header([]string{"class", "name", "count", "latency"})
+	for _, row := range rows {
+		err = table.Append([]interface{}{row.class, row.name, row.cnt, row.avgms})
+		if err != nil {
+			return err
+		}
+	}
+	if err = table.Render(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Do the plugin
 func Do() {
-	optDSN := flag.String("dsn", "system/manager", "Database Source Name")
+	optServer := flag.String("host", "localhost", "host")
+	optPort := flag.Int("port", 1521, "port")
+	optService := flag.String("service", "", "service")
+	optUser := flag.String("username", "sys", "username")
+	optPassword := flag.String("password", "password", "password")
+	optSid := flag.String("sid", "", "sid")
+	optShowEvent := flag.Bool("show-event", false, "Show List of WaitEvent")
+
 	optPrefix := flag.String("metric-key-prefix", "oracle", "Metric key prefix")
 	optTempfile := flag.String("tempfile", "", "Temp file name")
 	flag.Var(&optWaitEvents, "event", "List of WaitEvent name")
 	flag.Parse()
 
+	urlOptions := map[string]string{}
+	if *optSid != "" {
+		urlOptions["SID"] = *optSid
+	}
+
 	var oracle OraclePlugin
-	oracle.DSN = *optDSN
 	oracle.Prefix = *optPrefix
+	oracle.Conn = go_ora.BuildUrl(*optServer, *optPort, *optService, *optUser, *optPassword, urlOptions)
+
+	if *optShowEvent {
+		if err := showEventName(oracle.Conn); err != nil {
+			logger.Errorf(err.Error())
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
 
 	helper := mp.NewMackerelPlugin(oracle)
 

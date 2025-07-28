@@ -1,0 +1,28 @@
+---
+name: test
+
+on:
+  push:
+    branches:
+    - main
+    tags:
+    - v*
+  pull_request:
+env:
+  DEBIAN_FRONTEND: noninteractive
+jobs:
+  lint:
+    uses: mackerelio/workflows/.github/workflows/go-lint.yml@v1.5.0
+    with:
+      os-versions: '["ubuntu-latest"]'
+  test:
+    uses: mackerelio/workflows/.github/workflows/go-test.yml@v1.5.0
+    with:
+      os-versions: '["ubuntu-latest"]'
+  testci:
+    uses: mackerelio/workflows/.github/workflows/setup-go-matrix.yml@v1.5.0
+    with:
+      os-versions: '["ubuntu-latest"]'
+      run: |
+        go build
+        ./test.sh
