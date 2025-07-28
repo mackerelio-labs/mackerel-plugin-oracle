@@ -12,6 +12,8 @@ import (
 	mp "github.com/mackerelio/go-mackerel-plugin-helper"
 	"github.com/mackerelio/golib/logging"
 	go_ora "github.com/sijms/go-ora/v2"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 var logger = logging.GetLogger("metrics.plugin.oracle")
@@ -234,7 +236,7 @@ func (p OraclePlugin) FetchMetrics() (map[string]interface{}, error) {
 
 // GraphDefinition interface for mackerelplugin
 func (p OraclePlugin) GraphDefinition() map[string]mp.Graphs {
-	labelPrefix := strings.Title(p.MetricKeyPrefix())
+	labelPrefix := cases.Title(language.Und, cases.NoLower).String(p.MetricKeyPrefix())
 
 	var graphdef = map[string]mp.Graphs{
 		"resource": {
