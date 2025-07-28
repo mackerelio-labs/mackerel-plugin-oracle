@@ -6,7 +6,7 @@ Oracle custom metrics plugin for mackerel.io agent.
 ## Synopsis
 
 ```shell
-mackerel-plugin-oracle -sid=<SID> -username=<username> -password=<password> -service=<service> -host=<host> -event=<event> -event<event> ...
+mackerel-plugin-oracle -sid=<SID> -username=<username> -password=<password> -service=<service> -host=<host> -port=<port> -event=<event> -event<event> ...
 ```
 
 `-sid` is Oracle Database SID.
@@ -42,5 +42,5 @@ See also: <https://docs.oracle.com/database/122/REFRN/descriptions-of-wait-event
 Or
 
 ```
-mackerel-plugin-oracle -sid <SID> -username <username> -password <password> -service <service> -host <host> -show-event
+mackerel-plugin-oracle -sid <SID> -username <username> -password <password> -service <service> -host <host> -port=<port> -show-event
 ```
