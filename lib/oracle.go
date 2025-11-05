@@ -230,7 +230,7 @@ func (p OraclePlugin) FetchMetrics() (map[string]interface{}, error) {
 		logger.Errorf("FetchMetrics: %s", err)
 		return nil, err
 	}
-	defer db.Close()
+	defer db.Close() // nolint
 
 	statResource, err := fetchResource(db)
 	if err != nil {
