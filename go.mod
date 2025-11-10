@@ -2,6 +2,8 @@ module github.com/mackerelio-labs/mackerel-plugin-oracle
 
 go 1.24.0
 
+toolchain go1.24.9
+
 require (
 	github.com/mackerelio/go-mackerel-plugin-helper v0.1.4
 	github.com/mackerelio/golib v1.2.1

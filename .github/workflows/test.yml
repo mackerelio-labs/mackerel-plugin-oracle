@@ -12,17 +12,20 @@ env:
   DEBIAN_FRONTEND: noninteractive
 jobs:
   lint:
-    uses: mackerelio/workflows/.github/workflows/go-lint.yml@v1.5.0
+    uses: mackerelio/workflows/.github/workflows/go-lint.yml@7653987676cc233af59a390d142b5cf6e65a526f # v1.6.0
     with:
       os-versions: '["ubuntu-latest"]'
   test:
-    uses: mackerelio/workflows/.github/workflows/go-test.yml@v1.5.0
+    uses: mackerelio/workflows/.github/workflows/go-test.yml@7653987676cc233af59a390d142b5cf6e65a526f # v1.6.0
     with:
       os-versions: '["ubuntu-latest"]'
+      pre: |
+        echo "GOTOOLCHAIN=auto" >> $GITHUB_ENV
   testci:
-    uses: mackerelio/workflows/.github/workflows/setup-go-matrix.yml@v1.5.0
+    uses: mackerelio/workflows/.github/workflows/setup-go-matrix.yml@7653987676cc233af59a390d142b5cf6e65a526f # v1.6.0
     with:
       os-versions: '["ubuntu-latest"]'
       run: |
+        export GOTOOLCHAIN=auto
         go build
         ./test.sh
